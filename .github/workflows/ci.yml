@@ -1,13 +1,15 @@
 on:
-  push:[main]
-  pull_request:[main]
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
 
 jobs:
   build:
    runs_on: ubuntu-latest
    steps:
+     - uses: actions/checkout@v4
      - name: Installer Python
-     - uses: actions/checkout@v5
      - uses: actions/setup-python@v5
        with:
         python-version: "3.11"
