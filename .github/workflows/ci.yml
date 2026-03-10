@@ -1,30 +1,88 @@
-name: Pipeline simple
+name: CI Pipeline
 
 on:
-  push :
-    branches : main
-  pull_request : 
-    branches : main
-  workflow_dispatch : 
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
 
-jobs : 
-  build :
-    runs-on : ubuntu-latest
-    steps :  
-      - name : Recuperer le code
-        uses : actions/checkout@v4
-      - name : Installer python
-        uses : actions/setup-python@v5
-        with :
-          python-version : "3.11"
+jobs:
+ 
+  # Job 1 : Lint
+   
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
 
-      - name : Installer les dépendances 
-        run : pip install -r requirements.txt
-      - name : flake8
-        run : |
-          flake8 app --count --select=E9,F63,F7,F82,F841 --show-source --statistics
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install flake8
+
+      - name: Run flake8
+        run: |
+          flake8 app --count --select=E9,F63,F7,F841 --show-source --statistics
           flake8 app --count --max-complexity=10 --max-line-length=127 --statistics
           flake8 tests --count --max-line-length=127 --statistics
 
-      - name : lances les tests
-        run : PYTHONPATH=. pytest -v --cov=app
+ 
+  # Job 2 : Test
+ 
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: lint    
+    if: ${{ success() }}    
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-cov
+
+      - name: Run tests with coverage
+        run: pytest tests/ -v --cov=app --cov-report=xml
+
+ 
+  # Job 3 : Build package
+   
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: test    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build tools
+        run: |
+          pip install build
+
+      - name: Build Python package
+        run: python -m build
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: python-package
+          path: dist/*
